@@ -333,7 +333,8 @@ static dequantize_mul_mat_vec_cuda_t ggml_get_dequantize_mul_mat_vec_cuda(ggml_t
 }
 
 // buffer pool for cuda
-#define MAX_CUDA_BUFFERS 256
+#define MAX_CUDA_BUFFERS 0
+//#define MAX_CUDA_BUFFERS 256
 
 struct scoped_spin_lock {
     std::atomic_flag& lock;
@@ -391,7 +392,7 @@ static void ggml_cuda_pool_free(void * ptr, size_t size) {
     CUDA_CHECK(cudaFree(ptr));
 }
 
-#define GGML_CUDA_MAX_STREAMS 8 // Set this to 1 for reproducible matrix multiplication.
+#define GGML_CUDA_MAX_STREAMS 1 // 8 // Set this to 1 for reproducible matrix multiplication.
 #define GGML_CUDA_MAX_EVENTS 64
 static cublasHandle_t g_cublasH = nullptr;
 static cudaStream_t g_cudaStreams[GGML_CUDA_MAX_STREAMS] = { nullptr };
@@ -412,7 +413,7 @@ void ggml_init_cublas() {
 
         // create cublas handle
         CUBLAS_CHECK(cublasCreate(&g_cublasH));
-        CUBLAS_CHECK(cublasSetMathMode(g_cublasH, CUBLAS_TF32_TENSOR_OP_MATH));
+        CUBLAS_CHECK(cublasSetMathMode(g_cublasH, CUBLAS_TENSOR_OP_MATH)); // CUBLAS_TF32_TENSOR_OP_MATH));
 
         // configure logging to stdout
         // CUBLAS_CHECK(cublasLoggerConfigure(1, 1, 0, nullptr));
@@ -603,7 +604,7 @@ static void ggml_cuda_mul_mat_f16(const ggml_tensor * src0, const ggml_tensor * 
                         &alpha, c_X, CUDA_R_16F, ne00,
                                 c_Y, CUDA_R_16F, ne10,
                         &beta,  c_D, CUDA_R_32F, ne01,
-                        CUBLAS_COMPUTE_32F_FAST_16F,
+                        CUDA_R_32F, // CUBLAS_COMPUTE_32F_FAST_16F,
                         CUBLAS_GEMM_DEFAULT));
 
             // copy dst to host
