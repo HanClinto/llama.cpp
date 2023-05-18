@@ -211,9 +211,19 @@
 #ifdef  __cplusplus
 extern "C" {
 #endif
+/*
+    #ifndef __fp16
+        #include <cuda_fp16.h>
+        // If there is no __fp16, then use the half datatype
+        typedef __half ggml_fp16_t;
+    #else
+    */
 
-#ifdef __ARM_NEON
-    // we use the built-in 16-bit float type
+
+#ifdef __CUDA_COMPILATION__
+    #include <cuda_fp16.h>
+    typedef __half ggml_fp16_t;
+#elif defined(__ARM_NEON)
     typedef __fp16 ggml_fp16_t;
 #else
     typedef uint16_t ggml_fp16_t;
