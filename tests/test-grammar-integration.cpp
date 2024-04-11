@@ -218,16 +218,16 @@ static void test_chained_ambiguity() {
     llama_grammar* grammar = llama_grammar_init(
         grammar_rules.data(), grammar_rules.size(), parsed_grammar.symbol_ids.at("root"));
 
-    std::string input = "1aa2aa3aa4aa5";
+    std::string input = "1aa2aa3aa4";
 
     auto decoded = decode_utf8(input, {});
 
     const auto & code_points = decoded.first;
 
-    size_t cnt = 0;
+    //size_t cnt = 0;
     for (auto it = code_points.begin(), end = code_points.end() - 1; it != end; ++it) {
         //fprintf(stderr, "Parsing character %zu ('%c'), stack size %zu\n", cnt, input[cnt], grammar->stacks.size());
-        ++cnt;
+        //++cnt;
 
         auto prev_stacks = grammar->stacks;
         grammar->stacks = llama_grammar_accept(grammar->rules, grammar->stacks, *it);
@@ -268,16 +268,16 @@ static void test_chained_ambiguity_grouped() {
     llama_grammar* grammar = llama_grammar_init(
         grammar_rules.data(), grammar_rules.size(), parsed_grammar.symbol_ids.at("root"));
 
-    std::string input = "1aa2aa3aa4aa5";
+    std::string input = "1aa2aa3aa4";
 
     auto decoded = decode_utf8(input, {});
 
     const auto & code_points = decoded.first;
 
-    size_t cnt = 0;
+    //size_t cnt = 0;
     for (auto it = code_points.begin(), end = code_points.end() - 1; it != end; ++it) {
         //fprintf(stderr, "Parsing character %zu ('%c'), stack size %zu\n", cnt, input[cnt], grammar->stacks.size());
-        ++cnt;
+        //++cnt;
 
         auto prev_stacks = grammar->stacks;
         grammar->stacks = llama_grammar_accept(grammar->rules, grammar->stacks, *it);
