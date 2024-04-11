@@ -201,6 +201,94 @@ ws ::= [ \t\n\r]?)""";
     llama_grammar_free(grammar);
 }
 
+static void visualize_stacks_ascii(const std::vector<std::vector<const llama_grammar_element*>>& stacks) {
+    for (size_t i = 0; i < stacks.size(); ++i) {
+        fprintf(stdout, "Stack %zu: ", i);
+        for (const auto& element : stacks[i]) {
+            fprintf(stdout, "%d %d, ", element->type, element->value);
+        }
+        fprintf(stdout, "\n");
+    }
+}
+
+static void test_chained_ambiguity() {
+    // Test case for a grammar that has chained ambiguity
+    const std::string grammar_str = R"""(root ::= [0-9] ("a"? "a"? "a"? "a"? "a"? "a"? "a"? "a"? [0-9])*)""";
+
+//    const std::string grammar_str = R"""(root ::= [0-9] (("a" ("a" ("a" ("a" ("a")?)?)?)?)? [0-9])*)""";
+
+    grammar_parser::parse_state parsed_grammar = grammar_parser::parse(grammar_str.c_str());
+
+    // Ensure we parsed correctly
+    assert(!parsed_grammar.rules.empty());
+
+    // Ensure we have a root node
+    assert(!(parsed_grammar.symbol_ids.find("root") == parsed_grammar.symbol_ids.end()));
+
+    std::vector<const llama_grammar_element*> grammar_rules(parsed_grammar.c_rules());
+    llama_grammar* grammar = llama_grammar_init(
+        grammar_rules.data(), grammar_rules.size(), parsed_grammar.symbol_ids.at("root"));
+
+    std::string input = "1aa2aa3aa4aa5aa6";
+    //std::string input = "1aa2";
+
+    auto decoded = decode_utf8(input, {});
+
+    const auto & code_points = decoded.first;
+
+    size_t cnt = 0;
+    for (auto it = code_points.begin(), end = code_points.end() - 1; it != end; ++it) {
+        fprintf(stderr, "Parsing character %zu ('%c'), stack size %zu\n", cnt, input[cnt], grammar->stacks.size());
+        ++cnt;
+
+        //visualize_stacks_ascii(grammar->stacks);
+
+        auto prev_stacks = grammar->stacks;
+        auto new_stacks = llama_grammar_accept(grammar->rules, grammar->stacks, *it);
+
+        // Create culled_stacks from new_stacks that contains at most 1 of each stack
+        std::vector<std::vector<const llama_grammar_element *>> culled_stacks;
+
+        for (const auto & new_stack : new_stacks) {
+            bool found = false;
+            for (const auto & culled_stack : culled_stacks) {
+                if (culled_stack == new_stack) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                culled_stacks.push_back(new_stack);
+            }
+        }
+
+        grammar->stacks = culled_stacks;
+
+        //fprintf(stderr, "Before culling, stack size %zu\n", new_stacks.size());
+        //fprintf(stderr, "After culling, stack size %zu\n", grammar->stacks.size());
+
+        if (grammar->stacks.empty()) {
+            fprintf(stderr, "Unexpected character '%s'\n", unicode_cpt_to_utf8(*it).c_str());
+        }
+        assert(!grammar->stacks.empty());
+    }
+
+    bool completed_grammar = false;
+
+    for (const auto & stack : grammar->stacks) {
+        if (stack.empty()) {
+            completed_grammar = true;
+            break;
+        }
+    }
+
+    assert(completed_grammar);
+
+    // Clean up allocated memory
+    llama_grammar_free(grammar);
+
+}
+
 static void test_failure_missing_root() {
     // Test case for a grammar that is missing a root rule
     const std::string grammar_str = R"""(rot ::= expr
@@ -235,6 +323,9 @@ number ::= [0-9]+)""";
 }
 
 int main() {
+    test_chained_ambiguity();
+    return 0;
+
     test_simple_grammar();
     test_complex_grammar();
     test_failure_missing_root();

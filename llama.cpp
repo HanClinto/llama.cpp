@@ -11861,6 +11861,7 @@ static void llama_grammar_advance_stack(
         std::vector<std::vector<const llama_grammar_element *>> & new_stacks) {
 
     if (stack.empty()) {
+        // an empty stack indicates that the grammar has been satisfied
         new_stacks.emplace_back(stack);
         return;
     }
