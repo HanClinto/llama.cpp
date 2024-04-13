@@ -11852,19 +11852,24 @@ static bool llama_grammar_match_partial_char(
     return !is_positive_char;
 }
 
-
-// transforms a grammar pushdown stack into N possible stacks, all ending
-// at a character range (terminal element)
 static void llama_grammar_advance_stack(
         const std::vector<std::vector<llama_grammar_element>>   & rules,
         const std::vector<const llama_grammar_element *>        & stack,
-        std::vector<std::vector<const llama_grammar_element *>> & new_stacks) {
+        std::vector<std::vector<const llama_grammar_element *>> & new_stacks);
+
+// transforms a grammar pushdown stack into N possible stacks, all ending
+// at a character range (terminal element)
+static std::vector<std::vector<const llama_grammar_element *>> llama_grammar_advance_stack_impl(
+        const std::vector<std::vector<llama_grammar_element>>   & rules,
+        const std::vector<const llama_grammar_element *>        & stack) {
+
+    std::vector<std::vector<const llama_grammar_element *>> new_stacks;
 
     if (stack.empty()) {
         if (std::find(new_stacks.begin(), new_stacks.end(), stack) == new_stacks.end()) {
             new_stacks.emplace_back(stack);
         }
-        return;
+        return new_stacks;
     }
 
     const llama_grammar_element * pos = stack.back();
@@ -11910,6 +11915,55 @@ static void llama_grammar_advance_stack(
             // (LLAMA_GRETYPE_CHAR_ALT, LLAMA_GRETYPE_CHAR_RNG_UPPER); stack should never be left on
             // those
             GGML_ASSERT(false);
+    }
+
+    return new_stacks;
+}
+
+
+// Maintain a hash map of the N possible stacks that can be reached from a given stack by advancing
+// one element. The key is the entire stack, and the value is the set of possible stacks that
+// can be reached from the key stack.
+
+struct VectorPointerHash {
+    size_t operator()(const std::vector<const llama_grammar_element *>& v) const {
+        size_t seed = v.size();
+        for (const auto* ptr : v) {
+            seed ^= std::hash<const llama_grammar_element*>()(ptr) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
+
+static std::unordered_map<
+    std::vector<const llama_grammar_element *>,
+    std::vector<std::vector<const llama_grammar_element *>>,
+    VectorPointerHash>
+    llama_grammar_next_stacks_cache = {};
+
+// transforms a grammar pushdown stack into N possible stacks, all ending
+// at a character range (terminal element)
+static void llama_grammar_advance_stack(
+        const std::vector<std::vector<llama_grammar_element>>   & rules,
+        const std::vector<const llama_grammar_element *>        & stack,
+        std::vector<std::vector<const llama_grammar_element *>> & new_stacks) {
+
+    std::vector<std::vector<const llama_grammar_element *>> advanced_stacks;
+
+    // Check to see if our cache is already populated
+    auto it = llama_grammar_next_stacks_cache.find(stack);
+    if (it != llama_grammar_next_stacks_cache.end()) {
+        advanced_stacks = it->second;
+    } else {
+        // If the cache is not populated, we need to populate it
+        advanced_stacks = llama_grammar_advance_stack_impl(rules, stack);
+    }
+
+    // Add each of the advanced stacks to the new stacks if they are not already present
+    for (const auto & new_stack : advanced_stacks) {
+        if (std::find(new_stacks.begin(), new_stacks.end(), new_stack) == new_stacks.end()) {
+            new_stacks.push_back(new_stack);
+        }
     }
 }
 
@@ -12040,6 +12094,9 @@ struct llama_grammar * llama_grammar_init(
         }
         vec_rules[i].push_back({LLAMA_GRETYPE_END, 0});
     }
+
+    // clear hash map cache of stacks
+    llama_grammar_next_stacks_cache.clear();
 
     // loop over alternates of start rule to build initial stacks
     std::vector<std::vector<const llama_grammar_element *>> stacks;
