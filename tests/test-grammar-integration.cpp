@@ -374,24 +374,27 @@ static void test_identifier_rules() {
         // Grammar
         R"""(
             root ::= simple-identifier
-            simple-identifier ::= ---dashmaster--- | mIxEd-CaSe | UPPER-LOWER-CASE | upper-lower-case 
+            simple-identifier ::= ---dashmaster--- | mIxEd-CaSe | UPPER-LOWER-CASE | upper-lower-case | 12345
             ---dashmaster--- ::= [-_]+
             mIxEd-CaSe ::= [a-z][A-Z][a-z][A-Z]
             UPPER-LOWER-CASE ::= [A-Z][A-Z]
             upper-lower-case ::= [a-z][a-z]
+            12345 ::= "67890"
             )""",
         // Passing strings
         {
             "___--_--___",
             "aByZ",
             "aa",
-            "AB"
+            "AB",
+            "67890"
         },
         // Failing strings
         {
             "_a_",
             "aA",
             "Aa",
+            "12345",
             ""
         }
     );
