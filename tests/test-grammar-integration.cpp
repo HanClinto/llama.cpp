@@ -365,6 +365,38 @@ empty ::= "blah" | )""";
     fprintf(stderr, "  ✅︎ Passed\n");
 }
 
+static void test_identifier_rules() {
+    // A collection of tests to exercise identifier rules
+    // c.f. #7720: https://github.com/ggerganov/llama.cpp/issues/7720
+
+    test_grammar(
+        "identifier rules",
+        // Grammar
+        R"""(
+            root ::= simple-identifier
+            simple-identifier ::= ---dashmaster--- | mIxEd-CaSe | UPPER-LOWER-CASE | upper-lower-case 
+            ---dashmaster--- ::= [-_]+
+            mIxEd-CaSe ::= [a-z][A-Z][a-z][A-Z]
+            UPPER-LOWER-CASE ::= [A-Z][A-Z]
+            upper-lower-case ::= [a-z][a-z]
+            )""",
+        // Passing strings
+        {
+            "___--_--___",
+            "aByZ",
+            "aa",
+            "AB"
+        },
+        // Failing strings
+        {
+            "_a_",
+            "aA",
+            "Aa",
+            ""
+        }
+    );
+}
+
 int main() {
     fprintf(stdout, "Running grammar integration tests...\n");
     test_simple_grammar();
@@ -373,6 +405,7 @@ int main() {
     test_failure_missing_root();
     test_failure_missing_reference();
     test_failure_left_recursion();
+    test_identifier_rules();
     fprintf(stdout, "All tests passed.\n");
     return 0;
 }
