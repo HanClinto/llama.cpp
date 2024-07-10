@@ -1,5 +1,5 @@
 # run with: ./tests.sh --no-skipped --tags truncation
-@trucation
+@truncation
 @slow
 Feature: Chat truncation
 
